@@ -17,6 +17,22 @@ npm run dev
 
 Apri [http://localhost:3000](http://localhost:3000).
 
+## Deploy Vercel
+
+1. Importa il repo [Danilo00/wp-see](https://github.com/Danilo00/wp-see)
+2. Imposta **Root Directory** = `web`
+3. Variabile d'ambiente: `CHATS_ROOT` = `./chats` (già in `web/vercel.json`)
+4. Redeploy dopo ogni push su `main`
+
+## Tunnel ngrok (dev)
+
+```bash
+cd web && npm run dev
+ngrok http 3000
+```
+
+`next dev` accetta host ngrok via `allowedDevOrigins` in `next.config.ts`. Usa la porta mostrata nel terminale (3000 o 3001).
+
 ## Configurazione
 
 Crea o modifica `.env.local`:

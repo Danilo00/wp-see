@@ -1,7 +1,10 @@
 import fs from "fs/promises";
 import { NextResponse } from "next/server";
 import path from "path";
-import { resolveMediaPath } from "@/lib/chat-discovery";
+import { normalizeChatId, resolveMediaPath } from "@/lib/chat-discovery";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string; filename: string }> };
 
@@ -22,7 +25,7 @@ const MIME: Record<string, string> = {
 
 export async function GET(_request: Request, { params }: Params) {
   const { id, filename } = await params;
-  const filePath = resolveMediaPath(id, decodeURIComponent(filename));
+  const filePath = resolveMediaPath(normalizeChatId(id), decodeURIComponent(filename));
 
   if (!filePath) {
     return NextResponse.json({ error: "File non valido" }, { status: 400 });

@@ -1,3 +1,4 @@
+import { existsSync } from "fs";
 import fs from "fs/promises";
 import path from "path";
 import { debugLog } from "./debug";
@@ -6,9 +7,49 @@ import type { ChatSummary, ParsedChat } from "./types";
 
 const CHAT_FILE_NAMES = ["_chat.txt", "chat.txt"];
 
+let cachedChatsRoot: string | null = null;
+
+/** Decodifica ID chat da URL (anche doppio-encoding). */
+export function normalizeChatId(id: string): string {
+  let decoded = id;
+  for (let i = 0; i < 2; i++) {
+    try {
+      const next = decodeURIComponent(decoded);
+      if (next === decoded) break;
+      decoded = next;
+    } catch {
+      break;
+    }
+  }
+  return decoded;
+}
+
 export function getChatsRoot(): string {
-  const root = process.env.CHATS_ROOT ?? "./chats";
-  return path.resolve(process.cwd(), root);
+  if (cachedChatsRoot && existsSync(cachedChatsRoot)) {
+    return cachedChatsRoot;
+  }
+
+  const cwd = process.cwd();
+  const fromEnv = process.env.CHATS_ROOT?.trim();
+
+  const candidates = [
+    fromEnv ? path.resolve(cwd, fromEnv) : null,
+    path.join(cwd, "chats"),
+    path.join(cwd, "web", "chats"),
+  ].filter((p): p is string => Boolean(p));
+
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      cachedChatsRoot = candidate;
+      debugLog(3, "discovery", "Chats root resolved", { root: candidate, cwd });
+      return candidate;
+    }
+  }
+
+  const fallback = path.join(cwd, "chats");
+  cachedChatsRoot = fallback;
+  debugLog(2, "discovery", "Chats root fallback (may be missing)", { root: fallback, cwd });
+  return fallback;
 }
 
 export async function discoverChats(): Promise<ChatSummary[]> {
@@ -19,7 +60,7 @@ export async function discoverChats(): Promise<ChatSummary[]> {
   try {
     entries = await fs.readdir(root);
   } catch (err) {
-    debugLog(1, "discovery", "Failed to read chats root", err);
+    debugLog(1, "discovery", "Failed to read chats root", { root, err });
     return [];
   }
 
@@ -40,7 +81,7 @@ export async function discoverChats(): Promise<ChatSummary[]> {
   }
 
   summaries.sort((a, b) => a.title.localeCompare(b.title, "it"));
-  debugLog(4, "discovery", "Chats discovered", { count: summaries.length });
+  debugLog(4, "discovery", "Chats discovered", { count: summaries.length, root });
 
   return summaries;
 }
@@ -59,25 +100,25 @@ async function findChatFile(folderPath: string): Promise<string | null> {
 }
 
 export async function loadChat(chatId: string): Promise<ParsedChat | null> {
-  const folderName = chatId;
+  const folderName = normalizeChatId(chatId);
   const root = getChatsRoot();
   const folderPath = path.join(root, folderName);
   const chatFile = await findChatFile(folderPath);
   if (!chatFile) {
-    debugLog(2, "discovery", "Chat file not found", { folderName });
+    debugLog(2, "discovery", "Chat file not found", { folderName, folderPath, root });
     return null;
   }
 
   const content = await fs.readFile(chatFile, "utf-8");
   const title = folderName.replace(/^WhatsApp Chat - /i, "").trim() || folderName;
-  return parseWhatsAppChat(content, chatId, title);
+  return parseWhatsAppChat(content, folderName, title);
 }
 
 export function resolveMediaPath(chatId: string, filename: string): string | null {
   const safeName = path.basename(filename);
   if (safeName !== filename || safeName.includes("..")) return null;
 
-  const folderName = chatId;
+  const folderName = normalizeChatId(chatId);
   const root = getChatsRoot();
   const full = path.join(root, folderName, safeName);
   return full;
