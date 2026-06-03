@@ -31,9 +31,9 @@ API:
 - `POST /api/chats/upload/presign` — ottiene URL S3
 - `POST /api/chats/import` — `{ s3Key, title? }` elabora zip da S3
 
-## Deploy Vercel
+## Deploy Vercel (repo collegato alla root)
 
-**Root Directory = `web`** (obbligatorio). Non impostare `outputDirectory` manualmente.
+Vedi [README root](../README.md). Root Directory = `.` (non `web`).
 
 Env richieste per produzione:
 

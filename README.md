@@ -5,19 +5,28 @@ Visualizzatore web per export chat WhatsApp con MongoDB, AWS S3 e import zip.
 ## Avvio locale
 
 ```bash
-cd web
-npm install
-cp .env.example .env.local
-npm run dev
+cd web && npm install && cp .env.example .env.local && npm run dev
+# oppure dalla root: npm install --prefix web && npm run dev
 ```
 
 Senza `MONGODB_URI` e AWS usa **storage locale** (`web/chats/`).
 
-## Deploy Vercel
+## Deploy Vercel (repo collegato alla root)
 
-1. **Root Directory** del progetto Vercel = `web` (importante)
-2. Non usare `outputDirectory` custom — Next.js gestisce il build
-3. Variabili d'ambiente (Settings → Environment Variables):
+Il progetto Vercel può restare collegato alla **root del repo** (`wp-see/`).  
+`vercel.json` in root dice a Vercel di buildare Next.js da `web/package.json`.
+
+### Impostazioni dashboard
+
+| Campo | Valore |
+|-------|--------|
+| **Root Directory** | `.` oppure vuoto — **non** `web` |
+| **Framework Preset** | Next.js |
+| **Build / Output Directory** | **vuoti** (usa `vercel.json`) |
+
+> Non impostare `Output Directory` a `public` o `web/.next`: causa errori di build.
+
+### Variabili d'ambiente
 
 | Variabile | Descrizione |
 |-----------|-------------|
