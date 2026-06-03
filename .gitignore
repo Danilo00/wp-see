@@ -10,8 +10,8 @@ web/build/
 .env.local
 .env*.local
 
-# Export WhatsApp (dati personali — non versionare)
-WhatsApp Chat*/
+# Export WhatsApp fuori da web/chats (usa web/chats/ nel repo)
+/WhatsApp Chat*/
 
 # OS / IDE
 .DS_Store

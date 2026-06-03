@@ -4,8 +4,8 @@ Visualizzatore web per export chat WhatsApp.
 
 ## Struttura
 
-- Cartelle `WhatsApp Chat - …` con `_chat.txt` e allegati (root progetto)
 - App Next.js in `web/`
+- Chat e media in `web/chats/` (export WhatsApp con `_chat.txt` + allegati)
 
 ## Avvio rapido
 

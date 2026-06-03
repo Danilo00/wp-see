@@ -5,7 +5,7 @@ Web app per visualizzare le chat esportate da WhatsApp (file `_chat.txt` + alleg
 ## Requisiti
 
 - Node.js 20+
-- Cartelle export WhatsApp nella directory padre (o percorso custom)
+- Le chat sono incluse in `web/chats/` (o percorso custom via `CHATS_ROOT`)
 
 ## Avvio
 
@@ -22,12 +22,12 @@ Apri [http://localhost:3000](http://localhost:3000).
 Crea o modifica `.env.local`:
 
 ```env
-CHATS_ROOT=..
+CHATS_ROOT=./chats
 DEBUG_ENABLE=false
 DEBUG_LEVEL=4
 ```
 
-- `CHATS_ROOT`: percorso relativo alla cartella `web` dove cercare le cartelle chat (default `..` = root del progetto wp-see).
+- `CHATS_ROOT`: percorso relativo alla cartella `web` dove cercare le cartelle chat (default `./chats`).
 - Debug: imposta `DEBUG_ENABLE=true` oppure in console del browser `localStorage.setItem('DEBUG_ENABLE','true')`. Livello: `DEBUG_LEVEL` o `localStorage.setItem('DEBUG_LEVEL','2')` (1–4).
 
 ## Struttura export WhatsApp

@@ -7,7 +7,7 @@ import type { ChatSummary, ParsedChat } from "./types";
 const CHAT_FILE_NAMES = ["_chat.txt", "chat.txt"];
 
 export function getChatsRoot(): string {
-  const root = process.env.CHATS_ROOT ?? "..";
+  const root = process.env.CHATS_ROOT ?? "./chats";
   return path.resolve(process.cwd(), root);
 }
 
