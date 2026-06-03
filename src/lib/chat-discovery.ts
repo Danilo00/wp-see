@@ -35,7 +35,6 @@ export function getChatsRoot(): string {
   const candidates = [
     fromEnv ? path.resolve(cwd, fromEnv) : null,
     path.join(cwd, "chats"),
-    path.join(cwd, "web", "chats"),
   ].filter((p): p is string => Boolean(p));
 
   for (const candidate of candidates) {

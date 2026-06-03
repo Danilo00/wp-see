@@ -1,16 +1,16 @@
 # Dipendenze e build
 node_modules/
-web/node_modules/
-web/.next/
-web/out/
-web/build/
+.next/
+out/
+build/
 
 # Ambiente
 .env
 .env.local
 .env*.local
+!.env.example
 
-# Export WhatsApp fuori da web/chats (usa web/chats/ nel repo)
+# Export WhatsApp fuori da chats/ (usa chats/ nel repo)
 /WhatsApp Chat*/
 
 # OS / IDE
@@ -21,5 +21,9 @@ Thumbs.db
 .vscode/
 
 # TypeScript
-web/next-env.d.ts
+next-env.d.ts
 *.tsbuildinfo
+
+# File temporanei / backup
+* copy.*
+* copy
