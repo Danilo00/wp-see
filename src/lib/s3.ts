@@ -1,7 +1,9 @@
 import {
   DeleteObjectCommand,
+  DeleteObjectsCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -102,6 +104,44 @@ export async function getSignedUploadUrl(
     }),
     { expiresIn },
   );
+}
+
+export function chatMediaPrefix(chatSlug: string): string {
+  return `chats/${chatSlug}/`;
+}
+
+export async function deletePrefix(prefix: string): Promise<number> {
+  let deleted = 0;
+  let token: string | undefined;
+
+  do {
+    const list = await getClient().send(
+      new ListObjectsV2Command({
+        Bucket: getBucket(),
+        Prefix: prefix,
+        ContinuationToken: token,
+      }),
+    );
+
+    const keys = (list.Contents ?? [])
+      .map((o) => o.Key)
+      .filter((k): k is string => Boolean(k));
+
+    if (keys.length > 0) {
+      await getClient().send(
+        new DeleteObjectsCommand({
+          Bucket: getBucket(),
+          Delete: { Objects: keys.map((Key) => ({ Key })) },
+        }),
+      );
+      deleted += keys.length;
+    }
+
+    token = list.NextContinuationToken;
+  } while (token);
+
+  debugLog(3, "s3", "Prefix deleted", { prefix, deleted });
+  return deleted;
 }
 
 export async function deleteObject(key: string): Promise<void> {

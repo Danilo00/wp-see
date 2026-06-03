@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { Button } from "./ui/Button";
 
 type ChatActionsSheetProps = {
   open: boolean;
@@ -9,6 +10,8 @@ type ChatActionsSheetProps = {
   participants: string[];
   onMyNameChange: (name: string) => void;
   onExportPdf: () => void;
+  onRename: () => void;
+  onDelete: () => void;
   exporting: boolean;
 };
 
@@ -19,6 +22,8 @@ export function ChatActionsSheet({
   participants,
   onMyNameChange,
   onExportPdf,
+  onRename,
+  onDelete,
   exporting,
 }: ChatActionsSheetProps) {
   useEffect(() => {
@@ -46,14 +51,14 @@ export function ChatActionsSheet({
         aria-label="Opzioni chat"
         className="absolute inset-x-0 bottom-0 rounded-t-2xl bg-white pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl animate-slide-up"
       >
-        <div className="mx-auto mb-3 mt-2 h-1 w-10 rounded-full bg-[#d1d7db]" />
+        <div className="mx-auto mb-3 mt-2 h-1 w-10 rounded-full bg-[var(--wa-border)]" />
         <div className="px-4 pb-2">
           <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-[#111b21]">I miei messaggi come</span>
+            <span className="text-sm font-medium text-[var(--wa-text)]">I miei messaggi come</span>
             <select
               value={myName}
               onChange={(e) => onMyNameChange(e.target.value)}
-              className="min-h-[48px] w-full rounded-lg border border-[#d1d7db] bg-[#f0f2f5] px-3 text-base text-[#111b21]"
+              className="min-h-[48px] w-full rounded-xl border border-[var(--wa-border)] bg-[var(--wa-header)] px-3 text-base text-[var(--wa-text)]"
             >
               {participants.map((p) => (
                 <option key={p} value={p}>
@@ -62,25 +67,44 @@ export function ChatActionsSheet({
               ))}
             </select>
           </label>
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            fullWidth
             onClick={() => {
               onExportPdf();
               onClose();
             }}
             disabled={exporting}
-            className="mt-4 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg bg-[#008069] text-base font-medium text-white active:bg-[#006b57] disabled:opacity-60"
+            className="mt-4 gap-2 text-base"
           >
             <PdfIcon />
             {exporting ? "Generazione PDF…" : "Scarica chat in PDF"}
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="mt-2 flex min-h-[48px] w-full items-center justify-center rounded-lg text-base font-medium text-[#667781] active:bg-[#f0f2f5]"
+          </Button>
+          <Button
+            variant="secondary"
+            fullWidth
+            onClick={() => {
+              onRename();
+              onClose();
+            }}
+            className="mt-2 text-base"
           >
+            Rinomina chat
+          </Button>
+          <Button
+            variant="dangerSoft"
+            fullWidth
+            onClick={() => {
+              onDelete();
+              onClose();
+            }}
+            className="mt-2 text-base"
+          >
+            Elimina chat
+          </Button>
+          <Button variant="ghost" fullWidth onClick={onClose} className="mt-2 text-base">
             Annulla
-          </button>
+          </Button>
         </div>
       </div>
     </div>

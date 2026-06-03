@@ -1,0 +1,1 @@
+carica qui cartella con chat.txt e tutti i media per caricamento chats statico (no aws, no mongodb)

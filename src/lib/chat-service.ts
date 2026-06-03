@@ -2,8 +2,10 @@ import fs from "fs/promises";
 import path from "path";
 import {
   discoverChats as discoverLocal,
+  getChatsRoot,
   isLocalChatId,
   loadChat as loadLocal,
+  normalizeChatId,
   resolveMediaPath,
 } from "./chat-discovery";
 import { debugLog } from "./debug";
@@ -12,14 +14,18 @@ import { ChatModel, type ChatDoc } from "./models/Chat";
 import { MessageModel, type AttachmentDoc, type MessageDoc } from "./models/Message";
 import {
   chatMediaKey,
+  chatMediaPrefix,
+  deletePrefix,
   getObjectBuffer,
   getSignedMediaUrl,
   isCloudStorageEnabled,
   isS3Configured,
   uploadBuffer,
 } from "./s3";
+import { resolveChatImportTitle } from "./chat-title";
 import type { ChatMessage, ChatSummary, ParsedChat } from "./types";
-import { extractWhatsAppZip, inferTitleFromFolder, parseExtractedZip } from "./zip-import";
+import { parseWhatsAppChat } from "./whatsapp-parser";
+import { extractWhatsAppZip, parseExtractedZip } from "./zip-import";
 
 function asMessageDocs(docs: unknown): MessageDoc[] {
   return docs as MessageDoc[];
@@ -322,9 +328,19 @@ async function saveChatToCloud(
 export async function importZipBuffer(
   zipBuffer: Buffer,
   titleOverride?: string,
+  sourceFilename?: string,
 ): Promise<ChatSummary> {
   const extracted = extractWhatsAppZip(zipBuffer);
-  const title = titleOverride?.trim() || inferTitleFromFolder(extracted.chatFolder);
+  const title = resolveChatImportTitle({
+    titleOverride,
+    folderName: extracted.chatFolder,
+    sourceFilename,
+  });
+  debugLog(3, "chat-service", "Resolved import title", {
+    title,
+    folder: extracted.chatFolder,
+    sourceFilename,
+  });
 
   if (isCloudStorageEnabled()) {
     const slug = await uniqueSlug(title);
@@ -337,29 +353,59 @@ export async function importZipBuffer(
   return saveChatToLocal(title, parsed, extracted);
 }
 
-export async function importZipFromS3Key(s3Key: string, titleOverride?: string): Promise<ChatSummary> {
-  const buffer = await getObjectBuffer(s3Key);
-  return importZipBuffer(buffer, titleOverride);
+export async function importChatTextBuffer(
+  textBuffer: Buffer,
+  titleOverride?: string,
+  sourceFilename?: string,
+): Promise<ChatSummary> {
+  const chatText = textBuffer.toString("utf-8");
+  if (!chatText.trim()) {
+    throw new Error("Il file chat è vuoto");
+  }
+
+  const title = resolveChatImportTitle({ titleOverride, sourceFilename });
+  debugLog(3, "chat-service", "Resolved text import title", { title, sourceFilename });
+
+  if (isCloudStorageEnabled()) {
+    const slug = await uniqueSlug(title);
+    const parsed = parseWhatsAppChat(chatText, slug, title);
+    parsed.summary.id = slug;
+    return saveChatToCloud(slug, parsed, ".", new Map());
+  }
+
+  const parsed = parseWhatsAppChat(chatText, title, title);
+  return saveChatTextToLocal(title, parsed, chatText);
 }
 
-async function saveChatToLocal(
+export async function importZipFromS3Key(
+  s3Key: string,
+  titleOverride?: string,
+  sourceFilename?: string,
+): Promise<ChatSummary> {
+  const buffer = await getObjectBuffer(s3Key);
+  const filename = sourceFilename ?? s3Key.split("/").pop();
+  const lower = filename?.toLowerCase() ?? "";
+
+  if (lower.endsWith(".txt")) {
+    return importChatTextBuffer(buffer, titleOverride, filename);
+  }
+
+  return importZipBuffer(buffer, titleOverride, filename);
+}
+
+async function saveChatTextToLocal(
   slug: string,
   parsed: ParsedChat,
-  extracted: ReturnType<typeof extractWhatsAppZip>,
+  chatText: string,
 ): Promise<ChatSummary> {
-  const { getChatsRoot } = await import("./chat-discovery");
   const root = getChatsRoot();
   const folderName = `WhatsApp Chat - ${parsed.summary.title}`;
   const folderPath = path.join(root, folderName);
 
   await fs.mkdir(folderPath, { recursive: true });
-  await fs.writeFile(path.join(folderPath, "_chat.txt"), extracted.chatText, "utf-8");
+  await fs.writeFile(path.join(folderPath, "_chat.txt"), chatText, "utf-8");
 
-  for (const [filename, buffer] of extracted.files) {
-    await fs.writeFile(path.join(folderPath, filename), buffer);
-  }
-
-  debugLog(3, "chat-service", "Chat saved locally", { folderPath });
+  debugLog(3, "chat-service", "Chat text saved locally", { folderPath });
 
   return {
     ...parsed.summary,
@@ -367,6 +413,24 @@ async function saveChatToLocal(
     folderName,
     source: "local",
   };
+}
+
+async function saveChatToLocal(
+  slug: string,
+  parsed: ParsedChat,
+  extracted: ReturnType<typeof extractWhatsAppZip>,
+): Promise<ChatSummary> {
+  const summary = await saveChatTextToLocal(slug, parsed, extracted.chatText);
+
+  const root = getChatsRoot();
+  const folderPath = path.join(root, summary.folderName);
+
+  for (const [filename, buffer] of extracted.files) {
+    await fs.writeFile(path.join(folderPath, filename), buffer);
+  }
+
+  debugLog(3, "chat-service", "Chat saved locally with media", { folderPath });
+  return summary;
 }
 
 function guessContentType(filename: string): string {
@@ -380,6 +444,79 @@ function guessContentType(filename: string): string {
     ".pdf": "application/pdf",
   };
   return map[ext] ?? "application/octet-stream";
+}
+
+async function deleteLocalChat(chatId: string): Promise<void> {
+  const folderName = normalizeChatId(chatId);
+  const folderPath = path.join(getChatsRoot(), folderName);
+  await fs.rm(folderPath, { recursive: true, force: true });
+  debugLog(3, "chat-service", "Local chat deleted", { folderPath });
+}
+
+async function deleteCloudChat(slug: string): Promise<void> {
+  await connectMongo();
+
+  if (isS3Configured()) {
+    await deletePrefix(chatMediaPrefix(slug));
+  }
+
+  await MessageModel.deleteMany({ chatSlug: slug });
+  await ChatModel.deleteOne({ slug });
+  debugLog(3, "chat-service", "Cloud chat deleted", { slug });
+}
+
+export async function deleteChat(chatId: string): Promise<void> {
+  const source = await resolveChatSource(chatId);
+  if (!source) throw new Error("Chat non trovata");
+
+  if (source === "local") {
+    await deleteLocalChat(chatId);
+    return;
+  }
+
+  await deleteCloudChat(chatId);
+}
+
+export async function updateChatTitle(chatId: string, title: string): Promise<ChatSummary> {
+  const trimmed = title.trim();
+  if (!trimmed) throw new Error("Titolo non valido");
+
+  const source = await resolveChatSource(chatId);
+  if (!source) throw new Error("Chat non trovata");
+
+  if (source === "cloud") {
+    await connectMongo();
+    const doc = (await ChatModel.findOneAndUpdate(
+      { slug: chatId },
+      { title: trimmed },
+      { new: true },
+    ).lean()) as unknown as ChatDoc | null;
+
+    if (!doc) throw new Error("Chat non trovata");
+    debugLog(3, "chat-service", "Cloud chat renamed", { slug: chatId, title: trimmed });
+    return toCloudSummary(doc);
+  }
+
+  const folderName = normalizeChatId(chatId);
+  const root = getChatsRoot();
+  const oldPath = path.join(root, folderName);
+  const newFolderName = `WhatsApp Chat - ${trimmed}`;
+  const newPath = path.join(root, newFolderName);
+
+  if (folderName !== newFolderName) {
+    try {
+      await fs.access(newPath);
+      throw new Error("Esiste già una chat con questo titolo");
+    } catch (err) {
+      if (err instanceof Error && err.message.includes("Esiste già")) throw err;
+    }
+    await fs.rename(oldPath, newPath);
+  }
+
+  const chat = await loadLocal(newFolderName);
+  if (!chat) throw new Error("Errore dopo rinomina");
+
+  return { ...chat.summary, title: trimmed, id: newFolderName, folderName: newFolderName, source: "local" };
 }
 
 export async function getStorageInfo() {

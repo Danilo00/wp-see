@@ -1,5 +1,6 @@
 import AdmZip from "adm-zip";
 import path from "path";
+import { inferTitleFromWhatsAppName } from "./chat-title";
 import { debugLog } from "./debug";
 import type { ParsedChat } from "./types";
 import { parseWhatsAppChat } from "./whatsapp-parser";
@@ -67,6 +68,7 @@ export function parseExtractedZip(
 }
 
 export function inferTitleFromFolder(folder: string): string {
-  const base = folder.split("/").pop() ?? folder;
-  return base.replace(/^WhatsApp Chat - /i, "").trim() || base;
+  if (!folder || folder === ".") return "";
+  const base = folder.split("/").filter(Boolean).pop() ?? folder;
+  return inferTitleFromWhatsAppName(base);
 }

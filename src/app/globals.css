@@ -5,10 +5,31 @@
   --wa-header: #f0f2f5;
   --wa-outgoing: #d9fdd3;
   --wa-incoming: #ffffff;
+  --wa-accent: #008069;
+  --wa-accent-hover: #006b57;
+  --wa-text: #111b21;
+  --wa-text-muted: #667781;
+  --wa-border: #d1d7db;
+  --wa-surface: #ffffff;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
+  --space-chat-x: 0.75rem;
+  --space-chat-y: 0.875rem;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --space-chat-x: 1rem;
+    --space-chat-y: 1rem;
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    --space-chat-x: 1.25rem;
+  }
 }
 
 html {
@@ -22,7 +43,7 @@ body {
   overflow: hidden;
   overscroll-behavior: none;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  color: #111b21;
+  color: var(--wa-text);
   touch-action: manipulation;
 }
 
@@ -42,11 +63,44 @@ body {
   padding-bottom: var(--safe-bottom);
 }
 
-code {
-  font-size: 0.85em;
-  background: #f0f2f5;
-  padding: 0.1em 0.35em;
-  border-radius: 4px;
+.chat-wallpaper {
+  background-color: var(--wa-bg);
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23d4cfc4' fill-opacity='0.25'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    #e9edef 0%,
+    #f5f6f6 40%,
+    #e9edef 80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
 }
 
 @keyframes slide-up {
@@ -63,7 +117,22 @@ code {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer {
+    animation: none;
+  }
+
+  .animate-fade-in {
+    animation: none;
+  }
+
   .animate-slide-up {
     animation: none;
   }
+}
+
+code {
+  font-size: 0.85em;
+  background: var(--wa-header);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
 }

@@ -1,6 +1,8 @@
 "use client";
 
 import type { ChatSummary } from "@/lib/types";
+import { ChatSidebarSkeleton } from "./ChatSidebarSkeleton";
+import { Button } from "./ui/Button";
 
 type ChatSidebarProps = {
   chats: ChatSummary[];
@@ -9,8 +11,30 @@ type ChatSidebarProps = {
   onUploadClick: () => void;
   loading?: boolean;
   storageMode?: string;
+  pendingDeleteIds?: string[];
   className?: string;
 };
+
+function storageLabel(mode?: string): string {
+  if (mode === "hybrid") return "Cartella chats/ + Cloud";
+  if (mode === "cloud") return "MongoDB + AWS S3";
+  return "Storage locale";
+}
+
+function ChatAvatar({ title }: { title: string }) {
+  const initial = title.charAt(0).toUpperCase();
+  const hue = title.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) % 360;
+
+  return (
+    <div
+      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-base font-semibold text-white shadow-sm"
+      style={{ background: `linear-gradient(135deg, hsl(${hue} 45% 45%), hsl(${hue} 55% 38%))` }}
+      aria-hidden
+    >
+      {initial}
+    </div>
+  );
+}
 
 export function ChatSidebar({
   chats,
@@ -19,59 +43,87 @@ export function ChatSidebar({
   onUploadClick,
   loading,
   storageMode,
+  pendingDeleteIds = [],
   className = "",
 }: ChatSidebarProps) {
   return (
     <aside
-      className={`flex h-full w-full flex-col border-r border-[#d1d7db] bg-white md:w-80 lg:w-96 ${className}`}
+      className={`safe-top flex h-full w-full flex-col border-r border-[var(--wa-border)] bg-[var(--wa-surface)] pt-3 shadow-[2px_0_8px_rgba(0,0,0,0.04)] md:w-80 md:pt-4 lg:w-96 ${className}`}
     >
-      <div className="safe-top border-b border-[#d1d7db] bg-[#008069] px-4 py-3 text-white md:bg-[#f0f2f5] md:py-4 md:text-inherit">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <h2 className="text-xl font-semibold md:text-lg md:text-[#111b21]">WP See</h2>
-            <p className="text-sm opacity-90 md:text-xs md:text-[#667781] md:opacity-100">
-              {storageMode === "hybrid"
-                ? "Cartella chats/ + Cloud"
-                : storageMode === "cloud"
-                  ? "MongoDB + AWS S3"
-                  : "Storage locale"}
+      <div className="border-b border-[var(--wa-border)] bg-[var(--wa-accent)] px-4 py-3.5 text-white md:bg-[var(--wa-header)] md:py-4 md:text-inherit">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-xl font-semibold tracking-tight md:text-lg md:text-[var(--wa-text)]">
+              WP See
+            </h2>
+            <p className="truncate text-sm opacity-90 md:text-xs md:text-[var(--wa-text-muted)] md:opacity-100">
+              {storageLabel(storageMode)}
             </p>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="onDark"
             onClick={onUploadClick}
-            className="min-h-[40px] shrink-0 rounded-lg bg-white/20 px-3 text-sm font-medium text-white active:bg-white/30 md:bg-[#008069] md:text-white md:hover:bg-[#006b57]"
+            className="shrink-0 md:hidden"
           >
             + Importa
-          </button>
+          </Button>
+          <Button
+            variant="primary"
+            onClick={onUploadClick}
+            className="hidden shrink-0 md:inline-flex"
+          >
+            + Importa
+          </Button>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]">
-        {loading && (
-          <p className="p-4 text-sm text-[#667781]">Ricerca chat nella cartella…</p>
-        )}
+
+      <div className="flex-1 overflow-y-auto overscroll-contain px-2 py-2 [-webkit-overflow-scrolling:touch]">
+        {loading && <ChatSidebarSkeleton />}
+
         {!loading && chats.length === 0 && (
-          <p className="p-4 text-sm leading-relaxed text-[#667781]">
-            Nessuna chat. Tocca <strong>Importa</strong> e carica uno zip esportato da WhatsApp.
-          </p>
+          <div className="mx-2 mt-4 rounded-2xl border border-dashed border-[var(--wa-border)] bg-[var(--wa-header)]/60 px-4 py-6 text-center">
+            <p className="text-sm leading-relaxed text-[var(--wa-text-muted)]">
+              Nessuna chat. Tocca <strong className="text-[var(--wa-text)]">Importa</strong> e carica
+              uno zip esportato da WhatsApp.
+            </p>
+          </div>
         )}
-        {chats.map((chat) => (
-          <button
-            key={chat.id}
-            type="button"
-            onClick={() => onSelect(chat.id)}
-            className={`flex min-h-[72px] w-full touch-manipulation flex-col justify-center gap-0.5 border-b border-[#f0f2f5] px-4 py-3 text-left transition active:bg-[#f0f2f5] md:min-h-0 md:hover:bg-[#f5f6f6] ${
-              selectedId === chat.id ? "bg-[#f0f2f5] md:bg-[#f0f2f5]" : ""
-            }`}
-          >
-            <span className="truncate text-base font-medium text-[#111b21] md:text-sm">
-              {chat.title}
-            </span>
-            <span className="text-sm text-[#667781] md:text-xs">
-              {chat.messageCount} messaggi · {chat.participants.length} partecipanti
-            </span>
-          </button>
-        ))}
+
+        {!loading &&
+          chats.map((chat) => {
+            const isSelected = selectedId === chat.id;
+            const isPendingDelete = pendingDeleteIds.includes(chat.id);
+
+            return (
+              <button
+                key={chat.id}
+                type="button"
+                onClick={() => onSelect(chat.id)}
+                disabled={isPendingDelete}
+                className={`group relative flex min-h-[72px] w-full touch-manipulation items-center gap-3 rounded-xl px-3 py-3 text-left transition-all duration-150 active:scale-[0.99] md:min-h-0 ${
+                  isSelected
+                    ? "bg-[var(--wa-header)] shadow-sm"
+                    : "hover:bg-[#f5f6f6] active:bg-[var(--wa-header)]"
+                } ${isPendingDelete ? "pointer-events-none opacity-40" : ""}`}
+              >
+                {isSelected && (
+                  <span
+                    className="absolute bottom-2 left-0 top-2 w-1 rounded-full bg-[var(--wa-accent)]"
+                    aria-hidden
+                  />
+                )}
+                <ChatAvatar title={chat.title} />
+                <div className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-medium text-[var(--wa-text)] md:text-sm">
+                    {chat.title}
+                  </span>
+                  <span className="mt-0.5 block truncate text-sm text-[var(--wa-text-muted)] md:text-xs">
+                    {chat.messageCount} messaggi · {chat.participants.length} partecipanti
+                  </span>
+                </div>
+              </button>
+            );
+          })}
       </div>
     </aside>
   );

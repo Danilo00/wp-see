@@ -4,8 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import type { ChatMessage, ChatSummary } from "@/lib/types";
 import { debugLog } from "@/lib/debug";
 import { ChatBubble } from "./ChatBubble";
+import { ChatMessageListSkeleton } from "./ChatMessageListSkeleton";
 import { DateSeparator } from "./DateSeparator";
 import { LoadMoreButton } from "./LoadMoreButton";
+import { MediaViewerProvider } from "./MediaViewerProvider";
 
 type ChatMessageListProps = {
   chatId: string;
@@ -37,6 +39,7 @@ export function ChatMessageList({ chatId, summary, myName, pdfMode }: ChatMessag
 
   const loadInitial = useCallback(async () => {
     setInitialLoading(true);
+    setMessages([]);
     const res = await fetch(`/api/chats/${encodeURIComponent(chatId)}/messages?limit=50`);
     const data = await res.json();
     setMessages(data.messages ?? []);
@@ -108,6 +111,7 @@ export function ChatMessageList({ chatId, summary, myName, pdfMode }: ChatMessag
           chatId={chatId}
           isOutgoing={isOutgoing}
           showSender={summary.participants.length > 2}
+          interactive={!isPdf}
         />,
       );
     }
@@ -115,30 +119,23 @@ export function ChatMessageList({ chatId, summary, myName, pdfMode }: ChatMessag
   }, [messages, myName, chatId, summary.participants.length]);
 
   if (initialLoading) {
-    return (
-      <div className="flex flex-1 items-center justify-center text-[#667781]">
-        Caricamento messaggi…
-      </div>
-    );
+    return <ChatMessageListSkeleton />;
   }
 
   return (
-    <div
-      ref={listRef}
-      className={`flex-1 overflow-y-auto overscroll-contain bg-[#e5ddd5] [-webkit-overflow-scrolling:touch] ${
-        isPdf ? "max-h-none overflow-visible" : "safe-bottom"
-      }`}
-      style={{
-        backgroundImage: isPdf
-          ? undefined
-          : "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23d4cfc4' fill-opacity='0.25'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")",
-      }}
-    >
-      {!isPdf && hasOlder && (
-        <LoadMoreButton label="Messaggi precedenti" onClick={loadOlder} loading={loadingOlder} />
-      )}
-      <div className="py-2 pb-3">{items}</div>
-      <div ref={bottomRef} />
-    </div>
+    <MediaViewerProvider>
+      <div
+        ref={listRef}
+        className={`chat-wallpaper flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] ${
+          isPdf ? "max-h-none overflow-visible" : "safe-bottom"
+        }`}
+      >
+        {!isPdf && hasOlder && (
+          <LoadMoreButton label="Messaggi precedenti" onClick={loadOlder} loading={loadingOlder} />
+        )}
+        <div className="py-3 pb-4">{items}</div>
+        <div ref={bottomRef} />
+      </div>
+    </MediaViewerProvider>
   );
 }

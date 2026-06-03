@@ -41,6 +41,7 @@ export const PdfExportView = forwardRef<HTMLDivElement, PdfExportViewProps>(
           chatId={chatId}
           isOutgoing={myName ? msg.sender === myName : false}
           showSender={summary.participants.length > 2}
+          interactive={false}
         />,
       );
     }

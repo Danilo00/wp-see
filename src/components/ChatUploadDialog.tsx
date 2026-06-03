@@ -2,13 +2,17 @@
 
 import { useCallback, useRef, useState } from "react";
 import type { ChatSummary } from "@/lib/types";
+import { inferTitleFromWhatsAppName } from "@/lib/chat-title";
 import { debugLog } from "@/lib/debug";
+import { Button } from "./ui/Button";
 
 type ChatUploadDialogProps = {
   open: boolean;
   onClose: () => void;
   onImported: (summary: ChatSummary) => void;
 };
+
+const ACCEPT = ".zip,.txt,application/zip,text/plain";
 
 async function parseJsonResponse(res: Response): Promise<{ error?: string; summary?: ChatSummary }> {
   const text = await res.text();
@@ -21,6 +25,15 @@ async function parseJsonResponse(res: Response): Promise<{ error?: string; summa
         : `Upload fallito (${res.status}${text ? `: ${text.slice(0, 120)}` : ""})`,
     );
   }
+}
+
+function isTextChatFile(name: string): boolean {
+  return name.toLowerCase().endsWith(".txt");
+}
+
+function isSupportedFile(name: string): boolean {
+  const lower = name.toLowerCase();
+  return lower.endsWith(".zip") || lower.endsWith(".txt");
 }
 
 export function ChatUploadDialog({ open, onClose, onImported }: ChatUploadDialogProps) {
@@ -43,12 +56,16 @@ export function ChatUploadDialog({ open, onClose, onImported }: ChatUploadDialog
     onClose();
   };
 
-  const uploadDirect = async (file: File) => {
+  const uploadDirect = async (file: File, effectiveTitle: string) => {
     const formData = new FormData();
     formData.append("file", file);
-    if (title.trim()) formData.append("title", title.trim());
+    if (effectiveTitle) formData.append("title", effectiveTitle);
 
-    setProgress("Caricamento e importazione…");
+    setProgress(
+      isTextChatFile(file.name)
+        ? "Importazione chat di testo…"
+        : "Caricamento zip e importazione…",
+    );
 
     let res: Response;
     try {
@@ -69,13 +86,29 @@ export function ChatUploadDialog({ open, onClose, onImported }: ChatUploadDialog
 
   const handleSubmit = useCallback(
     async (file: File) => {
+      if (!isSupportedFile(file.name)) {
+        setError("Formato non supportato. Usa un file .zip o .txt esportato da WhatsApp.");
+        return;
+      }
+
       setLoading(true);
       setError(null);
-      debugLog(3, "upload-ui", "Starting upload", { name: file.name, size: file.size });
+
+      const effectiveTitle = title.trim() || inferTitleFromWhatsAppName(file.name);
+      if (!title.trim() && effectiveTitle) {
+        setTitle(effectiveTitle);
+      }
+
+      debugLog(3, "upload-ui", "Starting upload", {
+        name: file.name,
+        size: file.size,
+        title: effectiveTitle,
+        type: isTextChatFile(file.name) ? "txt" : "zip",
+      });
 
       try {
-        const summary = await uploadDirect(file);
-        debugLog(4, "upload-ui", "Import complete", { id: summary.id, source: summary.source });
+        const summary = await uploadDirect(file, effectiveTitle);
+        debugLog(4, "upload-ui", "Import complete", { id: summary.id, title: summary.title });
         onImported(summary);
         reset();
         onClose();
@@ -90,6 +123,14 @@ export function ChatUploadDialog({ open, onClose, onImported }: ChatUploadDialog
     },
     [onClose, onImported, title],
   );
+
+  const onFileSelected = (file: File | undefined) => {
+    if (!file) return;
+    if (!title.trim()) {
+      setTitle(inferTitleFromWhatsAppName(file.name));
+    }
+    void handleSubmit(file);
+  };
 
   if (!open) return null;
 
@@ -107,50 +148,48 @@ export function ChatUploadDialog({ open, onClose, onImported }: ChatUploadDialog
         aria-label="Importa chat WhatsApp"
         className="relative z-10 w-full max-w-md rounded-t-2xl bg-white p-5 shadow-2xl sm:rounded-2xl"
       >
-        <h3 className="text-lg font-semibold text-[#111b21]">Importa chat</h3>
-        <p className="mt-1 text-sm text-[#667781]">
-          Carica uno zip esportato da WhatsApp (con <code>_chat.txt</code> e allegati).
+        <h3 className="text-lg font-semibold text-[var(--wa-text)]">Importa chat</h3>
+        <p className="mt-1 text-sm leading-relaxed text-[var(--wa-text-muted)]">
+          Carica l&apos;export WhatsApp: riconosciamo automaticamente{" "}
+          <code>.zip</code> (chat + media) oppure <code>_chat.txt</code> (solo messaggi).
         </p>
 
-        <label className="mt-4 flex flex-col gap-1">
-          <span className="text-sm font-medium text-[#111b21]">Titolo (opzionale)</span>
+        <label className="mt-4 flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-[var(--wa-text)]">Titolo</span>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Es. Cliente XYZ"
-            className="min-h-[44px] rounded-lg border border-[#d1d7db] px-3 text-base"
+            placeholder="Es. Nome contatto"
+            className="min-h-[44px] rounded-xl border border-[var(--wa-border)] bg-white px-3 text-base text-[var(--wa-text)] placeholder:text-[var(--wa-text-muted)] focus:border-[var(--wa-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--wa-accent)]/20"
             disabled={loading}
           />
+          <span className="text-xs text-[var(--wa-text-muted)]">
+            Opzionale: se vuoto, lo deduciamo dal nome file (es. &quot;WhatsApp Chat - Cliente.zip&quot;).
+          </span>
         </label>
 
-        <label className="mt-3 flex min-h-[120px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#008069] bg-[#f0f2f5] px-4 py-6 text-center">
-          <span className="text-sm font-medium text-[#008069]">Seleziona file .zip</span>
-          <span className="mt-1 text-xs text-[#667781]">Upload via server (no CORS S3)</span>
+        <label className="mt-4 flex min-h-[132px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-[var(--wa-accent)] bg-[var(--wa-header)] px-4 py-6 text-center transition hover:bg-[#e9edef]">
+          <span className="text-sm font-semibold text-[var(--wa-accent)]">Seleziona file</span>
+          <span className="mt-1 text-xs leading-relaxed text-[var(--wa-text-muted)]">
+            .zip con chat e allegati oppure .txt solo chat
+          </span>
           <input
             ref={inputRef}
             type="file"
-            accept=".zip,application/zip"
+            accept={ACCEPT}
             className="sr-only"
             disabled={loading}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) void handleSubmit(file);
-            }}
+            onChange={(e) => onFileSelected(e.target.files?.[0])}
           />
         </label>
 
-        {progress && <p className="mt-3 text-sm text-[#027eb5]">{progress}</p>}
+        {progress && <p className="mt-3 text-sm font-medium text-[#027eb5]">{progress}</p>}
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
-        <button
-          type="button"
-          onClick={handleClose}
-          disabled={loading}
-          className="mt-4 min-h-[44px] w-full rounded-lg text-sm font-medium text-[#667781] active:bg-[#f0f2f5] disabled:opacity-50"
-        >
+        <Button variant="ghost" fullWidth onClick={handleClose} disabled={loading} className="mt-4">
           Annulla
-        </button>
+        </Button>
       </div>
     </div>
   );

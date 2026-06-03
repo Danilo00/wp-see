@@ -1,3 +1,6 @@
+import { Skeleton } from "./ui/Skeleton";
+import { Button } from "./ui/Button";
+
 type LoadMoreButtonProps = {
   label: string;
   onClick: () => void;
@@ -5,16 +8,24 @@ type LoadMoreButtonProps = {
 };
 
 export function LoadMoreButton({ label, onClick, loading }: LoadMoreButtonProps) {
+  if (loading) {
+    return (
+      <div className="flex justify-center px-[var(--space-chat-x)] py-3">
+        <Skeleton className="h-10 w-44" rounded="full" />
+      </div>
+    );
+  }
+
   return (
-    <div className="flex justify-center py-2">
-      <button
-        type="button"
+    <div className="flex justify-center px-[var(--space-chat-x)] py-3">
+      <Button
+        variant="secondary"
         onClick={onClick}
         disabled={loading}
-        className="min-h-[44px] touch-manipulation rounded-full bg-white/90 px-5 py-2.5 text-sm font-medium text-[#027eb5] shadow active:bg-white disabled:opacity-60 md:py-1.5"
+        className="rounded-full bg-white/95 px-5 text-[#027eb5] shadow-md hover:bg-white"
       >
-        {loading ? "Caricamento…" : label}
-      </button>
+        {label}
+      </Button>
     </div>
   );
 }
