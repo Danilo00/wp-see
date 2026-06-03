@@ -1,8 +1,0 @@
-{
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "functions": {
-    "src/app/api/chats/upload/route.ts": { "maxDuration": 60 },
-    "src/app/api/chats/import/route.ts": { "maxDuration": 120 },
-    "src/app/api/chats/migrate-local/route.ts": { "maxDuration": 120 }
-  }
-}
