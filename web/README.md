@@ -1,74 +1,62 @@
 # WP See
 
-Web app per visualizzare le chat esportate da WhatsApp (file `_chat.txt` + allegati) con interfaccia simile a WhatsApp, paginazione e export PDF.
+Web app per visualizzare chat WhatsApp con import zip, MongoDB, AWS S3, UI mobile e export PDF.
 
-## Requisiti
+## Storage
 
-- Node.js 20+
-- Le chat sono incluse in `web/chats/` (o percorso custom via `CHATS_ROOT`)
+| Modalità | Quando | Dove |
+|----------|--------|------|
+| **local** | Dev senza env cloud | `web/chats/` su disco |
+| **cloud** | `MONGODB_URI` + AWS configurati | MongoDB (metadati/messaggi) + S3 (media) |
+
+`STORAGE_MODE=auto` (default) sceglie cloud se possibile.
 
 ## Avvio
 
 ```bash
 cd web
 npm install
+cp .env.example .env.local
 npm run dev
 ```
 
-Apri [http://localhost:3000](http://localhost:3000).
+## Import chat (zip)
+
+1. Esporta chat da WhatsApp → file `.zip`
+2. Nell'app clicca **+ Importa**
+3. Zip piccoli: upload diretto. Zip > 4MB in cloud: upload presignato su S3
+
+API:
+- `POST /api/chats/upload` — multipart `file`, optional `title`
+- `POST /api/chats/upload/presign` — ottiene URL S3
+- `POST /api/chats/import` — `{ s3Key, title? }` elabora zip da S3
 
 ## Deploy Vercel
 
-1. Importa il repo [Danilo00/wp-see](https://github.com/Danilo00/wp-see)
-2. Imposta **Root Directory** = `web`
-3. Variabile d'ambiente: `CHATS_ROOT` = `./chats` (già in `web/vercel.json`)
-4. Redeploy dopo ogni push su `main`
+**Root Directory = `web`** (obbligatorio). Non impostare `outputDirectory` manualmente.
 
-## Tunnel ngrok (dev)
+Env richieste per produzione:
 
-```bash
-cd web && npm run dev
-ngrok http 3000
+```
+MONGODB_URI=mongodb+srv://...
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_REGION=eu-west-1
+AWS_S3_BUCKET=...
+STORAGE_MODE=auto
 ```
 
-`next dev` accetta host ngrok via `allowedDevOrigins` in `next.config.ts`. Usa la porta mostrata nel terminale (3000 o 3001).
+## Configurazione locale
 
-## Configurazione
-
-Crea o modifica `.env.local`:
-
-```env
-CHATS_ROOT=./chats
-DEBUG_ENABLE=false
-DEBUG_LEVEL=4
-```
-
-- `CHATS_ROOT`: percorso relativo alla cartella `web` dove cercare le cartelle chat (default `./chats`).
-- Debug: imposta `DEBUG_ENABLE=true` oppure in console del browser `localStorage.setItem('DEBUG_ENABLE','true')`. Livello: `DEBUG_LEVEL` o `localStorage.setItem('DEBUG_LEVEL','2')` (1–4).
-
-## Struttura export WhatsApp
-
-Ogni chat deve essere una cartella contenente:
-
-- `_chat.txt` (o `chat.txt`)
-- file allegati referenziati nel txt (foto, audio, video, ecc.)
-
-## Mobile
-
-- Navigazione a schermo intero: lista chat → conversazione (come WhatsApp)
-- Pulsante **indietro** per tornare alla lista
-- Menu **⋮** con selezione mittente e export PDF (bottom sheet)
-- Altezza `100dvh`, safe area (notch/home indicator), touch target ≥ 44px
-- Scroll fluido e allegati ridimensionati per schermi piccoli
+Vedi `.env.example` per tutte le variabili.
 
 ## Funzionalità
 
-- Lista chat dalla cartella configurata
-- Bolle messaggi (verde = tuo nome selezionato, bianco = altri)
-- Foto, audio, video e documenti inline
-- Paginazione: carica messaggi precedenti in cima
-- Export PDF impaginato con allegati
+- Lista chat, bolle stile WhatsApp, allegati inline
+- Paginazione messaggi, export PDF
+- UI mobile ottimizzata
+- Import zip WhatsApp
 
 ## Selezionare “i tuoi” messaggi
 
-Nel header, menu **I miei messaggi come**: scegli il nome con cui invii i messaggi (salvato per chat in `localStorage`).
+Header → **I miei messaggi come** (salvato in `localStorage` per chat).

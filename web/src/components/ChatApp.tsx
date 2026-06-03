@@ -9,6 +9,7 @@ import { useMySenderName } from "@/hooks/useMySenderName";
 import { ChatHeader } from "./ChatHeader";
 import { ChatMessageList } from "./ChatMessageList";
 import { ChatSidebar } from "./ChatSidebar";
+import { ChatUploadDialog } from "./ChatUploadDialog";
 import { PdfExportView } from "./PdfExportView";
 
 function waitForImages(root: HTMLElement | null): Promise<void> {
@@ -39,7 +40,28 @@ export function ChatApp() {
   const [loadingChats, setLoadingChats] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [pdfMessages, setPdfMessages] = useState<ChatMessage[]>([]);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [storageMode, setStorageMode] = useState<string>("local");
   const pdfRef = useRef<HTMLDivElement>(null);
+
+  const loadChats = useCallback(() => {
+    setLoadingChats(true);
+    return fetch("/api/chats")
+      .then((r) => r.json())
+      .then((data) => {
+        const list: ChatSummary[] = data.chats ?? [];
+        setChats(list);
+        setStorageMode(data.storage?.mode ?? "local");
+        setLoadingChats(false);
+        debugLog(4, "app", "Chats loaded", { count: list.length, storage: data.storage?.mode });
+        return list;
+      })
+      .catch((err) => {
+        debugLog(1, "app", "Failed to load chats", err);
+        setLoadingChats(false);
+        return [] as ChatSummary[];
+      });
+  }, []);
 
   const participants = summary?.participants ?? [];
   const { myName, setMyName } = useMySenderName(participants, selectedId);
@@ -48,22 +70,12 @@ export function ChatApp() {
   const showChatOnMobile = isMobile && mobileShowChat && selectedId;
 
   useEffect(() => {
-    fetch("/api/chats")
-      .then((r) => r.json())
-      .then((data) => {
-        const list: ChatSummary[] = data.chats ?? [];
-        setChats(list);
-        if (list.length > 0 && !isMobile) {
-          setSelectedId((prev) => prev ?? list[0].id);
-        }
-        setLoadingChats(false);
-        debugLog(4, "app", "Chats loaded", { count: list.length });
-      })
-      .catch((err) => {
-        debugLog(1, "app", "Failed to load chats", err);
-        setLoadingChats(false);
-      });
-  }, [isMobile]);
+    loadChats().then((list) => {
+      if (list.length > 0 && !isMobile) {
+        setSelectedId((prev) => prev ?? list[0].id);
+      }
+    });
+  }, [isMobile, loadChats]);
 
   useEffect(() => {
     if (!isMobile && chats.length > 0 && !selectedId) {
@@ -92,6 +104,18 @@ export function ChatApp() {
   const handleBackToList = useCallback(() => {
     setMobileShowChat(false);
   }, []);
+
+  const handleImported = useCallback(
+    (imported: ChatSummary) => {
+      setChats((prev) => {
+        const exists = prev.some((c) => c.id === imported.id);
+        return exists ? prev.map((c) => (c.id === imported.id ? imported : c)) : [...prev, imported];
+      });
+      setSelectedId(imported.id);
+      if (isMobile) setMobileShowChat(true);
+    },
+    [isMobile],
+  );
 
   const handleExportPdf = useCallback(async () => {
     if (!selectedId || !summary) return;
@@ -126,7 +150,9 @@ export function ChatApp() {
         chats={chats}
         selectedId={selectedId}
         onSelect={handleSelectChat}
+        onUploadClick={() => setUploadOpen(true)}
         loading={loadingChats}
+        storageMode={storageMode}
         className={
           showListOnMobile || !isMobile
             ? showChatOnMobile
@@ -161,8 +187,8 @@ export function ChatApp() {
               {isMobile ? "Tocca una chat per aprirla" : "Seleziona una conversazione"}
             </p>
             <p className="max-w-md text-sm leading-relaxed">
-              Le cartelle esportate da WhatsApp (con <code>_chat.txt</code> e allegati) vengono
-              lette automaticamente dalla directory configurata.
+              Importa uno zip WhatsApp con il pulsante <strong>+ Importa</strong> oppure seleziona
+              una chat dalla lista.
             </p>
           </div>
         )}
@@ -178,6 +204,13 @@ export function ChatApp() {
           title={summary.title}
         />
       )}
+
+      <ChatUploadDialog
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        onImported={handleImported}
+        storageMode={storageMode}
+      />
     </div>
   );
 }

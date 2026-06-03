@@ -1,6 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "env": {
-    "CHATS_ROOT": "./chats"
+  "functions": {
+    "src/app/api/chats/upload/route.ts": { "maxDuration": 60 },
+    "src/app/api/chats/import/route.ts": { "maxDuration": 120 },
+    "src/app/api/chats/migrate-local/route.ts": { "maxDuration": 120 }
   }
 }

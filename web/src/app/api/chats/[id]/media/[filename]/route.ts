@@ -1,7 +1,8 @@
 import fs from "fs/promises";
 import { NextResponse } from "next/server";
 import path from "path";
-import { normalizeChatId, resolveMediaPath } from "@/lib/chat-discovery";
+import { normalizeChatId } from "@/lib/chat-discovery";
+import { resolveMedia } from "@/lib/chat-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,23 +26,28 @@ const MIME: Record<string, string> = {
 
 export async function GET(_request: Request, { params }: Params) {
   const { id, filename } = await params;
-  const filePath = resolveMediaPath(normalizeChatId(id), decodeURIComponent(filename));
-
-  if (!filePath) {
-    return NextResponse.json({ error: "File non valido" }, { status: 400 });
-  }
+  const chatId = normalizeChatId(id);
+  const decodedName = decodeURIComponent(filename);
 
   try {
-    const buffer = await fs.readFile(filePath);
-    const ext = path.extname(filePath).toLowerCase();
-    const contentType = MIME[ext] ?? "application/octet-stream";
+    const resolved = await resolveMedia(chatId, decodedName);
 
-    return new NextResponse(buffer, {
-      headers: {
-        "Content-Type": contentType,
-        "Cache-Control": "public, max-age=86400",
-      },
-    });
+    if (resolved.mode === "redirect" && resolved.url) {
+      return NextResponse.redirect(resolved.url, 302);
+    }
+
+    if (resolved.mode === "local" && resolved.path) {
+      const buffer = await fs.readFile(resolved.path);
+      const ext = path.extname(resolved.path).toLowerCase();
+      return new NextResponse(buffer, {
+        headers: {
+          "Content-Type": MIME[ext] ?? "application/octet-stream",
+          "Cache-Control": "public, max-age=86400",
+        },
+      });
+    }
+
+    return NextResponse.json({ error: "File non trovato" }, { status: 404 });
   } catch {
     return NextResponse.json({ error: "File non trovato" }, { status: 404 });
   }
