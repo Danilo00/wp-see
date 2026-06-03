@@ -1,6 +1,7 @@
 "use client";
 
 import type { ChatMessage } from "@/lib/types";
+import { getSenderNameColor } from "@/lib/sender-color";
 import { MessageAttachment } from "./MessageAttachment";
 
 type ChatBubbleProps = {
@@ -38,7 +39,12 @@ export function ChatBubble({ message, chatId, isOutgoing, showSender, interactiv
         } ${message.isCall ? "italic text-[#54656f]" : ""}`}
       >
         {showSender && !isOutgoing && (
-          <p className="mb-1 text-xs font-semibold text-[#027eb5]">{message.sender}</p>
+          <p
+            className="mb-1 text-xs font-semibold"
+            style={{ color: getSenderNameColor(message.sender) }}
+          >
+            {message.sender}
+          </p>
         )}
 
         {message.attachments.map((att) => (
