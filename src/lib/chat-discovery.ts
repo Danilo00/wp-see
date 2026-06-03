@@ -76,7 +76,7 @@ export async function discoverChats(): Promise<ChatSummary[]> {
     const content = await fs.readFile(chatFile, "utf-8");
     const title = entry.replace(/^WhatsApp Chat - /i, "").trim() || entry;
     const { summary } = parseWhatsAppChat(content, entry, title);
-    summaries.push(summary);
+    summaries.push({ ...summary, source: "local" });
   }
 
   summaries.sort((a, b) => a.title.localeCompare(b.title, "it"));
@@ -111,6 +111,13 @@ export async function loadChat(chatId: string): Promise<ParsedChat | null> {
   const content = await fs.readFile(chatFile, "utf-8");
   const title = folderName.replace(/^WhatsApp Chat - /i, "").trim() || folderName;
   return parseWhatsAppChat(content, folderName, title);
+}
+
+export function isLocalChatId(chatId: string): boolean {
+  const folderName = normalizeChatId(chatId);
+  const folderPath = path.join(getChatsRoot(), folderName);
+  if (!existsSync(folderPath)) return false;
+  return CHAT_FILE_NAMES.some((name) => existsSync(path.join(folderPath, name)));
 }
 
 export function resolveMediaPath(chatId: string, filename: string): string | null {

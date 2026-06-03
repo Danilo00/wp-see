@@ -30,7 +30,11 @@ export function ChatSidebar({
           <div>
             <h2 className="text-xl font-semibold md:text-lg md:text-[#111b21]">WP See</h2>
             <p className="text-sm opacity-90 md:text-xs md:text-[#667781] md:opacity-100">
-              {storageMode === "cloud" ? "MongoDB + AWS S3" : "Storage locale"}
+              {storageMode === "hybrid"
+                ? "Cartella chats/ + Cloud"
+                : storageMode === "cloud"
+                  ? "MongoDB + AWS S3"
+                  : "Storage locale"}
             </p>
           </div>
           <button

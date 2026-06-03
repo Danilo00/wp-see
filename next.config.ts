@@ -17,6 +17,11 @@ const nextConfig: NextConfig = {
     "*.ngrok.app",
     "*.ngrok.dev",
   ],
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "50mb",
+    },
+  },
 };
 
 export default nextConfig;

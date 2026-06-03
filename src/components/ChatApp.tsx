@@ -209,7 +209,6 @@ export function ChatApp() {
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}
         onImported={handleImported}
-        storageMode={storageMode}
       />
     </div>
   );

@@ -6,5 +6,5 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const chats = await listChats();
-  return NextResponse.json({ chats, storage: getStorageInfo() });
+  return NextResponse.json({ chats, storage: await getStorageInfo() });
 }

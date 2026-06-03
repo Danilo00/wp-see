@@ -24,6 +24,8 @@ export interface ChatSummary {
   messageCount: number;
   participants: string[];
   dateRange: { from: string; to: string } | null;
+  /** local = cartella chats/, cloud = MongoDB + S3 */
+  source: "local" | "cloud";
 }
 
 export interface ParsedChat {

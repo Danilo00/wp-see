@@ -11,7 +11,8 @@ export const maxDuration = 120;
 
 /** Migra le chat locali in web/chats verso MongoDB + S3 (solo se cloud attivo). */
 export async function POST(request: Request) {
-  if (getStorageInfo().mode !== "cloud") {
+  const storage = await getStorageInfo();
+  if (!storage.cloudReady) {
     return NextResponse.json(
       { error: "Storage cloud non configurato (MONGODB_URI + AWS_S3_BUCKET)" },
       { status: 503 },

@@ -8,17 +8,22 @@ type ChatUploadDialogProps = {
   open: boolean;
   onClose: () => void;
   onImported: (summary: ChatSummary) => void;
-  storageMode?: string;
 };
 
-const LARGE_ZIP = 4 * 1024 * 1024;
+async function parseJsonResponse(res: Response): Promise<{ error?: string; summary?: ChatSummary }> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text) as { error?: string; summary?: ChatSummary };
+  } catch {
+    throw new Error(
+      res.ok
+        ? "Risposta non valida dal server"
+        : `Upload fallito (${res.status}${text ? `: ${text.slice(0, 120)}` : ""})`,
+    );
+  }
+}
 
-export function ChatUploadDialog({
-  open,
-  onClose,
-  onImported,
-  storageMode,
-}: ChatUploadDialogProps) {
+export function ChatUploadDialog({ open, onClose, onImported }: ChatUploadDialogProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
@@ -43,40 +48,23 @@ export function ChatUploadDialog({
     formData.append("file", file);
     if (title.trim()) formData.append("title", title.trim());
 
-    setProgress("Importazione in corso…");
-    const res = await fetch("/api/chats/upload", { method: "POST", body: formData });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? "Upload fallito");
-    return data.summary as ChatSummary;
-  };
+    setProgress("Caricamento e importazione…");
 
-  const uploadViaS3 = async (file: File) => {
-    setProgress("Preparazione upload S3…");
-    const presignRes = await fetch("/api/chats/upload/presign", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ filename: file.name, contentType: "application/zip" }),
-    });
-    const presign = await presignRes.json();
-    if (!presignRes.ok) throw new Error(presign.error ?? "Presign fallito");
+    let res: Response;
+    try {
+      res = await fetch("/api/chats/upload", { method: "POST", body: formData });
+    } catch (err) {
+      debugLog(1, "upload-ui", "Network error", err);
+      throw new Error(
+        "Connessione fallita. Verifica che il server sia attivo e che il file non superi i limiti di Vercel (~4.5MB in produzione).",
+      );
+    }
 
-    setProgress("Caricamento zip su S3…");
-    const putRes = await fetch(presign.uploadUrl, {
-      method: "PUT",
-      headers: { "Content-Type": presign.contentType },
-      body: file,
-    });
-    if (!putRes.ok) throw new Error("Upload S3 fallito");
-
-    setProgress("Elaborazione chat…");
-    const importRes = await fetch("/api/chats/import", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ s3Key: presign.key, title: title.trim() || undefined }),
-    });
-    const data = await importRes.json();
-    if (!importRes.ok) throw new Error(data.error ?? "Import fallito");
-    return data.summary as ChatSummary;
+    const data = await parseJsonResponse(res);
+    if (!res.ok || !data.summary) {
+      throw new Error(data.error ?? "Upload fallito");
+    }
+    return data.summary;
   };
 
   const handleSubmit = useCallback(
@@ -86,9 +74,8 @@ export function ChatUploadDialog({
       debugLog(3, "upload-ui", "Starting upload", { name: file.name, size: file.size });
 
       try {
-        const useS3 = file.size > LARGE_ZIP && storageMode === "cloud";
-        const summary = useS3 ? await uploadViaS3(file) : await uploadDirect(file);
-        debugLog(4, "upload-ui", "Import complete", { id: summary.id });
+        const summary = await uploadDirect(file);
+        debugLog(4, "upload-ui", "Import complete", { id: summary.id, source: summary.source });
         onImported(summary);
         reset();
         onClose();
@@ -101,7 +88,7 @@ export function ChatUploadDialog({
         setProgress("");
       }
     },
-    [onClose, onImported, storageMode, title],
+    [onClose, onImported, title],
   );
 
   if (!open) return null;
@@ -139,9 +126,7 @@ export function ChatUploadDialog({
 
         <label className="mt-3 flex min-h-[120px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#008069] bg-[#f0f2f5] px-4 py-6 text-center">
           <span className="text-sm font-medium text-[#008069]">Seleziona file .zip</span>
-          <span className="mt-1 text-xs text-[#667781]">
-            {storageMode === "cloud" ? "File grandi → upload diretto S3" : "Max ~50MB su upload diretto"}
-          </span>
+          <span className="mt-1 text-xs text-[#667781]">Upload via server (no CORS S3)</span>
           <input
             ref={inputRef}
             type="file"

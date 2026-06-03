@@ -140,6 +140,7 @@ export function parseWhatsAppChat(txtContent: string, chatId: string, title: str
     messageCount: messages.length,
     participants,
     dateRange,
+    source: "local",
   };
 
   debugLog(4, "parser", "Parse complete", { messages: messages.length, participants });
