@@ -63,14 +63,7 @@ export function ChatSidebar({
           <Button
             variant="onDark"
             onClick={onUploadClick}
-            className="shrink-0 md:hidden"
-          >
-            + Importa
-          </Button>
-          <Button
-            variant="primary"
-            onClick={onUploadClick}
-            className="hidden shrink-0 md:inline-flex"
+            className="shrink-0 md:bg-[var(--wa-accent)] md:text-white md:shadow-sm md:hover:bg-[var(--wa-accent-hover)] md:active:bg-[var(--wa-accent-hover)]"
           >
             + Importa
           </Button>
