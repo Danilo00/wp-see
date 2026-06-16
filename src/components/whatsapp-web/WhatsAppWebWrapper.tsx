@@ -16,27 +16,6 @@ export function WhatsAppWebWrapper() {
   const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
   const [iframeReady, setIframeReady] = useState(false);
 
-  // On mobile: gli iframe di solito vengono bloccati da WhatsApp/browser.
-  // Per garantire il funzionamento "sempre", usiamo sempre la navigazione top-level.
-  // La sessione (cookies) viene quindi memorizzata dal browser e resta tra refresh/visite.
-  useEffect(() => {
-    if (!isMobile) return;
-
-    const sessionKey = "wp-see:whatsapp-web:top-level-navigated";
-    try {
-      if (sessionStorage.getItem(sessionKey) === "1") return;
-      sessionStorage.setItem(sessionKey, "1");
-    } catch {
-      // If sessionStorage non è disponibile, proviamo comunque a navigare.
-    }
-
-    debugLog(4, "whatsapp-web", "Mobile detected: redirecting top-level", {
-      isMobile,
-      mode: "direct",
-    });
-    openDirect();
-  }, [isMobile, openDirect]);
-
   useEffect(() => {
     debugLog(4, "whatsapp-web", "Wrapper mounted", { isMobile });
   }, [isMobile]);
