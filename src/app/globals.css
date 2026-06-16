@@ -47,7 +47,8 @@ body {
   touch-action: manipulation;
 }
 
-.app-shell {
+.app-shell,
+.wa-web-shell {
   height: 100vh;
   height: 100dvh;
   height: 100svh;
